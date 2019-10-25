@@ -2,47 +2,58 @@ const fetch = require('node-fetch');
 const XLSX = require('xlsx');
 
 let retry = 0;
+const numberOfRetries = 10;
+const retryInterval = 60000; //Number in miliseconds
+const messages = [
+  'Este processo pode demorar um pouco, talvez você queira pegar um café.',
+  'Se não tiver um café pronto pode ir lá fazer, isso realmente demora.',
+  'Consultando dados de aeroportos...',
+  'Inicializando geração do arquivo.',
+  'Processo finalizado com sucesso.'
+];
 
 loop("aaa");
 
 async function loop(init) {
   let allAirports = [];
-  var temp = init;
+  let temp = init;
   let airport = await getAirportData(init);
   allAirports.push(airport);
-  console.log('Este processo pode demorar um pouco, talvez você queira pegar um café.');
-  console.log('Se não tiver um café pronto pode ir lá fazer, isso realmente demora.');
-  console.log('Consultando dados de aeroportos...');
+  console.log(messages[0]);
+  console.log(messages[1]);
+  console.log(messages[2]);
+
   while (true) {
     temp = generate(temp);
     if (temp == init) break;
     airport = await getAirportData(temp);
     allAirports.push(airport);
   }
-  console.log(JSON.stringify(allAirports))
   generateXLS(allAirports);
 }
+
 function generate(str) {
-  var alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
-  var chars = [];
-  for (var i = 0; i < str.length; i++) {
+  let alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
+  let chars = [];
+  for (let i = 0; i < str.length; i++) {
     chars.push(alphabet.indexOf(str[i]));
   }
-  for (var i = chars.length - 1; i >= 0; i--) {
-    var tmp = chars[i];
-    if (tmp >= 0 && tmp < 25) {
+  for (let i = chars.length - 1; i >= 0; i--) {
+    let tmp = chars[i];
+    if (tmp >= 0 && tmp < alphabet.length - 1) {
       chars[i]++;
       break;
     } else {
       chars[i] = 0;
     }
   }
-  var newstr = "";
-  for (var i = 0; i < chars.length; i++) {
+  let newstr = "";
+  for (let i = 0; i < chars.length; i++) {
     newstr += alphabet[chars[i]];
   }
   return newstr;
 }
+
 async function getAirportData(airport) {
   try {
     const url = `https://www.decolar.com/suggestions?locale=pt-BR&profile=sbox-cp-vh&hint=${airport}&fields=city`;
@@ -50,17 +61,17 @@ async function getAirportData(airport) {
     return response.json();
   } catch (error) {
     console.log(`Ocorreu um erro ao consultar a API. Foi necessária ${retry + 1} retentativa.`);
-    if(retry < 10){
+    if(retry < numberOfRetries){
       retry++;
       setTimeout(() => {
         return getAirportData(airport);
-      }, 60000);
+      }, retryInterval);
     }
     console.error(error);
   }
 }
 async function generateXLS(data) {
-  console.log('Inicializando geração do arquivo.');
+  console.log(messages[3]);
   const formatedAirports = formatedData2XLS(data);
   const headers = [
     ['id'],
@@ -74,7 +85,7 @@ async function generateXLS(data) {
     XLSX.utils.sheet_add_json(ws, lines);
     XLSX.utils.book_append_sheet(wb, ws, "Airports");
     XLSX.writeFile(wb, 'airports.xls');
-    console.log('Processo finalizado com sucesso.')
+    console.log(messages[3]);
   } catch (error) {
     console.error(error);
   }
